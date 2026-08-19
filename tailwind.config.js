@@ -18,8 +18,8 @@ export default {
           800: '#064e3b',
           900: '#022c22',
         },
-        // Velron brand (developer)
-        velron: {
+        // Tarjeti brand (developer)
+        tarjeti: {
           500: '#1b46c2',
           600: '#0f3aad',
           700: '#0a2f8f',

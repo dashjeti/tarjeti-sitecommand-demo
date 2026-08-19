@@ -1,4 +1,4 @@
-import { sheqRecords, certificates, newId, users } from '../demo/db'
+import { sheqRecords, sheqDetails, certificates, newId, users } from '../demo/db'
 import type { Certificate, Severity, SheqRecord, SheqType } from '../types'
 
 /** Demo implementation of the SHEQ + certificates API over the in-memory store. */
@@ -23,7 +23,7 @@ export interface SheqInput {
 }
 
 export async function submitSheqRecord(input: SheqInput): Promise<{ id: string | null; error: string | null }> {
-  const raisedBy = users.find((u) => u.id === input.conductedById)?.fullName ?? 'Site staff'
+  const author = users.find((u) => u.id === input.conductedById)
   const rec: SheqRecord = {
     id: newId('sh'),
     type: input.recordType,
@@ -32,16 +32,32 @@ export async function submitSheqRecord(input: SheqInput): Promise<{ id: string |
     severity: input.severity,
     status: 'open',
     date: new Date().toISOString().slice(0, 10),
-    raisedBy,
+    raisedBy: author?.fullName ?? 'Site staff',
+    raisedById: author?.id ?? null,
     attachments: 0,
   }
   sheqRecords.unshift(rec)
+  sheqDetails[rec.id] = {
+    description: input.description || null,
+    findings: input.findings || null,
+    correctiveAction: input.correctiveAction || null,
+    dueDate: input.dueDate || null,
+    closedAt: null,
+    attachments: [],
+  }
   return { id: rec.id, error: null }
 }
 
 export async function uploadSheqAttachments(recordId: string, files: File[]): Promise<void> {
   const rec = sheqRecords.find((r) => r.id === recordId)
-  if (rec) rec.attachments += files.length
+  if (!rec) return
+  rec.attachments += files.length
+  const detail = sheqDetails[recordId]
+  if (detail) {
+    for (const f of files) {
+      detail.attachments.push({ id: newId('att'), fileName: f.name, url: URL.createObjectURL(f) })
+    }
+  }
 }
 
 export async function deleteSheqRecord(id: string): Promise<{ error: string | null }> {
@@ -109,4 +125,63 @@ export function daysUntilExpiry(expiryDate: string): number {
   today.setHours(0, 0, 0, 0)
   const expiry = new Date(expiryDate)
   return Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+}
+
+// ── Full record detail, for the SHEQ manager reviewing what an officer wrote ──
+
+export interface SheqAttachment {
+  id: string
+  fileName: string
+  storagePath: string
+}
+
+export interface SheqRecordDetail {
+  id: string
+  type: SheqType
+  siteId: string
+  title: string
+  severity: Severity
+  status: SheqRecord['status']
+  date: string
+  dueDate: string | null
+  closedAt: string | null
+  raisedBy: string
+  description: string | null
+  findings: string | null
+  correctiveAction: string | null
+  attachments: SheqAttachment[]
+}
+
+/** One SHEQ record in full, including everything the officer typed and any
+ *  files they attached. The register only carries the summary fields. */
+export async function fetchSheqRecordDetail(id: string): Promise<SheqRecordDetail | null> {
+  const rec = sheqRecords.find((r) => r.id === id)
+  if (!rec) return null
+  const detail = sheqDetails[id]
+  return {
+    id: rec.id,
+    type: rec.type,
+    siteId: rec.siteId,
+    title: rec.title,
+    severity: rec.severity,
+    status: rec.status,
+    date: rec.date,
+    dueDate: detail?.dueDate ?? null,
+    closedAt: detail?.closedAt ?? null,
+    raisedBy: rec.raisedBy || 'Not recorded',
+    description: detail?.description ?? null,
+    findings: detail?.findings ?? null,
+    correctiveAction: detail?.correctiveAction ?? null,
+    attachments: (detail?.attachments ?? []).map((a) => ({
+      id: a.id,
+      fileName: a.fileName,
+      // In the demo the "storage path" is the file's object/data URL itself.
+      storagePath: a.url,
+    })),
+  }
+}
+
+/** Link to an attachment, so a manager can open what was uploaded. */
+export async function sheqAttachmentUrl(storagePath: string): Promise<string | null> {
+  return storagePath || null
 }

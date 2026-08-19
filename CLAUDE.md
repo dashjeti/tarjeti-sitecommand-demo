@@ -38,7 +38,7 @@ showroom, not an internal tool.
 - Palette: **greens / white**. The primary Tailwind token is still named
   `billnick` (historical) but its values are the green ramp, do not rename it
   across the codebase, and do not reintroduce orange or blue.
-- **No real client names anywhere** (no Billnick, no real sites/people). Demo
+- **No real client names anywhere** (no client company, sites or people). Demo
   sites are fictional: North Ridge, Falcon Creek, Silver Plains, Eastgate +
   Head Office. Personas are fictional.
 
